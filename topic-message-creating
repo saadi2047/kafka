@@ -1,0 +1,63 @@
+Step 1 – Create Test Topic in DR
+
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --create \
+  --topic smm-topic-sync-2025-10-17 \
+  --partitions 1 \
+  --replication-factor 3
+
+./kafka-topics.sh --bootstrap-server localhost:9092 --list | grep smm-topic-sync
+exit
+
+
+Step 2 – Produce Messages (Names) in DR
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic smm-topic-sync-2025-10-17
+
+Type messages manually:
+Saadi
+Omkar
+Suraj
+Tariq
+Nikhil
+Rashmi
+Mukesh
+Anuj
+Baboo_Sir
+
+Press Ctrl + C to exit after last one.
+
+Step 3A – (New) Consume in DR while Syncing
+While MirrorMaker2 is replicating to DC, you can also verify the messages inside DR itself:
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic smm-topic-sync-2025-10-17 \
+  --from-beginning \
+  --timeout-ms 10000
+
+Step 3B – Verify Topic Appears in DC
+
+oc rsh -n prod-dc-kafka prod-dc-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-topics.sh --bootstrap-server localhost:9092 --list | grep smm-topic-sync
+
+Step 4 – Consume Messages in DC
+./kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic prod-dr.smm-topic-sync-2025-10-17 \
+  --from-beginning \
+  --timeout-ms 10000
+
+When you see the same names — replication is confirmed ✅
