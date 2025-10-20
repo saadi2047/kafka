@@ -1,0 +1,232 @@
+[osuser@drepayprodbastion ~]$ oc get po prod-dr-kafka-mirror-maker-mirrormaker2-0 -o yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["172.16.44.17/23"],"mac_address":"0a:58:ac:10:2c:11","gateway_ips":["172.16.44.1"],"routes":[{"dest":"172.16.0.0/16","nextHop":"172.16.44.1"},{"dest":"172.30.0.0/16","nextHop":"172.16.44.1"},{"dest":"100.64.0.0/16","nextHop":"172.16.44.1"}],"ip_address":"172.16.44.17/23","gateway_ip":"172.16.44.1"}}'
+    k8s.v1.cni.cncf.io/network-status: |-
+      [{
+          "name": "ovn-kubernetes",
+          "interface": "eth0",
+          "ips": [
+              "172.16.44.17"
+          ],
+          "mac": "0a:58:ac:10:2c:11",
+          "default": true,
+          "dns": {}
+      }]
+    openshift.io/scc: restricted-v2
+    seccomp.security.alpha.kubernetes.io/pod: runtime/default
+    strimzi.io/auth-hash: "-1234801167"
+    strimzi.io/logging-hash: 06ee78c4
+    strimzi.io/revision: "60712164"
+  creationTimestamp: "2025-10-15T09:21:19Z"
+  labels:
+    app.kubernetes.io/instance: prod-dr-kafka-mirror-maker
+    app.kubernetes.io/managed-by: strimzi-cluster-operator
+    app.kubernetes.io/name: kafka-mirror-maker-2
+    app.kubernetes.io/part-of: strimzi-prod-dr-kafka-mirror-maker
+    com.company: Red_Hat
+    environment: prod-dr
+    rht.comp: AMQ_Streams
+    rht.comp_ver: 2.9.1
+    rht.prod_name: Red_Hat_Application_Foundations
+    rht.prod_ver: 2025.Q1
+    rht.subcomp: kafka-connect
+    rht.subcomp_t: application
+    statefulset.kubernetes.io/pod-name: prod-dr-kafka-mirror-maker-mirrormaker2-0
+    strimzi.io/cluster: prod-dr-kafka-mirror-maker
+    strimzi.io/component-type: kafka-mirror-maker-2
+    strimzi.io/controller: strimzipodset
+    strimzi.io/controller-name: prod-dr-kafka-mirror-maker-mirrormaker2
+    strimzi.io/kind: KafkaMirrorMaker2
+    strimzi.io/name: prod-dr-kafka-mirror-maker-mirrormaker2
+    strimzi.io/pod-name: prod-dr-kafka-mirror-maker-mirrormaker2-0
+  name: prod-dr-kafka-mirror-maker-mirrormaker2-0
+  namespace: prod-dr-kafka
+  ownerReferences:
+  - apiVersion: core.strimzi.io/v1beta2
+    blockOwnerDeletion: false
+    controller: true
+    kind: StrimziPodSet
+    name: prod-dr-kafka-mirror-maker-mirrormaker2
+    uid: b6d8a582-19b7-47ca-9bca-b038966019cf
+  resourceVersion: "88743685"
+  uid: f9d76be0-3642-4042-a2d4-962e8fa181e0
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role.kubernetes.io/worker
+            operator: Exists
+          - key: workload-type
+            operator: In
+            values:
+            - kafka
+  containers:
+  - args:
+    - /opt/kafka/kafka_mirror_maker_2_run.sh
+    env:
+    - name: KAFKA_CONNECT_CONFIGURATION
+      value: |
+        config.storage.topic=mirrormaker2-cluster-configs
+        group.id=mirrormaker2-cluster
+        status.storage.topic=mirrormaker2-cluster-status
+        config.providers.file.class=org.apache.kafka.common.config.provider.FileConfigProvider
+        offset.storage.topic=mirrormaker2-cluster-offsets
+        config.providers=file
+        value.converter=org.apache.kafka.connect.converters.ByteArrayConverter
+        key.converter=org.apache.kafka.connect.converters.ByteArrayConverter
+        header.converter=org.apache.kafka.connect.converters.ByteArrayConverter
+        config.storage.replication.factor=-1
+        offset.storage.replication.factor=-1
+        status.storage.replication.factor=-1
+    - name: KAFKA_CONNECT_METRICS_ENABLED
+      value: "false"
+    - name: KAFKA_CONNECT_BOOTSTRAP_SERVERS
+      value: dr-kafka-cluster-kafka-bootstrap.dr-kafka.svc.cluster.local:9092
+    - name: STRIMZI_KAFKA_GC_LOG_ENABLED
+      value: "false"
+    - name: STRIMZI_DYNAMIC_HEAP_PERCENTAGE
+      value: "75"
+    - name: KAFKA_CONNECT_TLS
+      value: "true"
+    - name: KAFKA_CONNECT_TRUSTED_CERTS
+      value: dc-tls-cert-mm/ca.crt
+    - name: KAFKA_MIRRORMAKER_2_CLUSTERS
+      value: source;target
+    - name: KAFKA_MIRRORMAKER_2_TLS_CLUSTERS
+      value: "true"
+    - name: KAFKA_MIRRORMAKER_2_TRUSTED_CERTS_CLUSTERS
+      value: target=dc-tls-cert-mm/ca.crt
+    image: registry.redhat.io/amq-streams/kafka-39-rhel9@sha256:818446e9a1b90acdb273f8bfcd1bc01ba9920a06bbf67b94504f4bcf8302f445
+    imagePullPolicy: IfNotPresent
+    livenessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /
+        port: rest-api
+        scheme: HTTP
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+    name: prod-dr-kafka-mirror-maker-mirrormaker2
+    ports:
+    - containerPort: 8083
+      name: rest-api
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /
+        port: rest-api
+        scheme: HTTP
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+    resources:
+      limits:
+        cpu: "2"
+        memory: 4Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsNonRoot: true
+      runAsUser: 1001390000
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /tmp
+      name: strimzi-tmp
+    - mountPath: /opt/kafka/custom-config/
+      name: kafka-metrics-and-logging
+    - mountPath: /opt/kafka/connect-certs/dc-tls-cert-mm
+      name: dc-tls-cert-mm
+    - mountPath: /opt/kafka/mm2-certs/target/dc-tls-cert-mm
+      name: target-dc-tls-cert-mm
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-gd5b9
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  hostname: prod-dr-kafka-mirror-maker-mirrormaker2-0
+  nodeName: kafka2.dr.prod.epay.sbi
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext:
+    fsGroup: 1001390000
+    seLinuxOptions:
+      level: s0:c37,c29
+    seccompProfile:
+      type: RuntimeDefault
+  serviceAccount: prod-dr-kafka-mirror-maker-mirrormaker2
+  serviceAccountName: prod-dr-kafka-mirror-maker-mirrormaker2
+  subdomain: prod-dr-kafka-mirror-maker-mirrormaker2
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoSchedule
+    key: workload-type
+    operator: Equal
+    value: kafka
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoSchedule
+    key: node.kubernetes.io/memory-pressure
+    operator: Exists
+  volumes:
+  - emptyDir:
+      medium: Memory
+      sizeLimit: 5Mi
+    name: strimzi-tmp
+  - configMap:
+      defaultMode: 420
+      name: prod-dr-kafka-mirror-maker-mirrormaker2-config
+    name: kafka-metrics-and-logging
+  - name: dc-tls-cert-mm
+    secret:
+      defaultMode: 288
+      secretName: dc-tls-cert-mm
+  - name: target-dc-tls-cert-mm
+    secret:
+      defaultMode: 288
+      secretName: dc-tls-cert-mm
+  - name: kube-api-access-gd5b9
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+      - configMap:
+          items:
+          - key: service-ca.crt
+            path: service-ca.crt
+          name: openshift-service-ca.crt
