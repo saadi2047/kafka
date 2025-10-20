@@ -1,0 +1,117 @@
+Step 1 – Create Test Topic in DR
+
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --create \
+  --topic smm-topic-sync-2025-10-17 \
+  --partitions 1 \
+  --replication-factor 3
+
+./kafka-topics.sh --bootstrap-server localhost:9092 --list | grep smm-topic-sync
+exit
+
+
+Step 2 – Produce Messages (Names) in DR
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic smm-topic-sync-2025-10-17
+
+Type messages manually:
+Saadi
+Omkar
+Suraj
+Tariq
+Nikhil
+Rashmi
+Mukesh
+Anuj
+Baboo_Sir
+
+Press Ctrl + C to exit after last one.
+
+Step 3A – (New) Consume in DR while Syncing
+While MirrorMaker2 is replicating to DC, you can also verify the messages inside DR itself:
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic smm-topic-sync-2025-10-17 \
+  --from-beginning \
+  --timeout-ms 10000
+
+Step 3B – Verify Topic Appears in DC
+
+oc rsh -n prod-dc-kafka prod-dc-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-topics.sh --bootstrap-server localhost:9092 --list | grep smm-topic-sync
+
+Step 4 – Consume Messages in DC
+./kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic prod-dr.smm-topic-sync-2025-10-17 \
+  --from-beginning \
+  --timeout-ms 10000
+
+When you see the same names — replication is confirmed ✅
+
+
+
+
+
+What Is an Offset?
+Every message in Kafka has a number called an offset (like a message ID).
+First message = offset 0 Next = 1 and so on…
+So, if your last offset is 8, it means there are 9 messages total (because it starts from 0).
+When MirrorMaker2 copies messages from DR → DC,
+we can check the last offset on both sides to confirm they match.
+
+
+Step 1 — Check Offsets in DR
+Run this inside your DR broker pod (same as you do for producer/consumer):
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-run-class.sh kafka.tools.GetOffsetShell \
+  --broker-list localhost:9092 \
+  --topic smm-topic-sync-2025-10-17
+
+
+You’ll get an output like:
+smm-topic-sync-2025-10-17:0:8
+Here:
+0 → partition number
+8 → last message offset number
+That means DR has 9 messages (0–8).
+
+
+Step 2 — Check Offsets in DC
+Run this inside your DC broker pod:
+oc rsh -n prod-dc-kafka prod-dc-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-run-class.sh kafka.tools.GetOffsetShell \
+  --broker-list localhost:9092 \
+  --topic prod-dr.smm-topic-sync-2025-10-17
+
+✅ You’ll get something like:
+prod-dr.smm-topic-sync-2025-10-17:0:8
+
+
+Step 3 — Compare
+
+Now check both numbers:
+
+DR → 8
+DC → 8
+
+👉 If they are same, it means all messages are synced perfectly.
+👉 If DC shows a smaller number (e.g., DR=8, DC=6),
+ that means replication is still in progress — MirrorMaker2 hasn’t finished syncing yet.
