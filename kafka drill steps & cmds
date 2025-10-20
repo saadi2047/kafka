@@ -1,0 +1,120 @@
+
+# Kafka MirrorMaker2 DR Drill Commands (Short Version with Where to Run)
+
+## Environment
+
+* Prod-DC: `prod-dc-kafka`, MM2: `prod-dc-kafka-mirror-maker`
+* Prod-DR: `prod-dr-kafka`, MM2: `prod-dr-kafka-mirror-maker`
+
+## Commands
+
+### Step 1 – Check Cluster Health
+
+**Run on Bastion/OC shell:**
+
+```bash
+oc get pods -n prod-dc-kafka   # Check DC
+oc get pods -n prod-dr-kafka   # Check DR
+```
+
+### Step 2 – Stop DC→DR MM2
+
+**Run on Bastion/OC shell (Prod-DC):**
+
+```bash
+oc scale KafkaMirrorMaker2 prod-dc-kafka-mirror-maker -n prod-dc-kafka --replicas=0
+```
+
+### Step 3 – Clean DC Cluster
+
+**Run inside Prod-DC Kafka broker pod:**
+
+```bash
+oc rsh -n prod-dc-kafka <dc-broker-pod>
+kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic '.*'
+exit
+```
+
+### Step 4 – Verify MM2 Stopped
+
+**Run on Bastion/OC shell (Prod-DC):**
+
+```bash
+oc get pods -n prod-dc-kafka | grep mirror
+```
+
+### Step 5 – Update MM2 in DR (Reverse)
+
+**Run on Bastion/OC shell (Prod-DR):**
+
+```bash
+oc edit KafkaMirrorMaker2 prod-dr-kafka-mirror-maker -n prod-dr-kafka
+```
+
+Update `source.bootstrapServers` and `target.bootstrapServers`.
+
+### Step 6 – Start MM2 in DR
+
+**Run on Bastion/OC shell (Prod-DR):**
+
+```bash
+oc scale KafkaMirrorMaker2 prod-dr-kafka-mirror-maker -n prod-dr-kafka --replicas=1
+oc get pods -n prod-dr-kafka | grep mirror
+```
+
+### Step 7 – Check Logs
+
+**Run on Bastion/OC shell (Prod-DR):**
+
+```bash
+oc logs -f -n prod-dr-kafka <mm2-pod-name>
+```
+
+### Step 8 – Switch Clients to DR
+
+**Update Application Config (any client connecting to Kafka):**
+
+```
+bootstrap.servers=prod-dr-kafka-cluster-kafka-bootstrap-prod-dr-kafka.apps.dr.prod.epay.sbi:443
+```
+
+### Step 9 – Validate Lag
+
+**Run inside Prod-DR Kafka broker pod:**
+
+```bash
+oc rsh -n prod-dr-kafka <dr-broker-pod>
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --all-groups
+exit
+```
+
+### Step 10 – Failback to DC
+
+**Run on Bastion/OC shell:**
+
+```bash
+# Stop DR->DC MM2
+oc scale KafkaMirrorMaker2 prod-dr-kafka-mirror-maker -n prod-dr-kafka --replicas=0
+
+# Edit DC MM2 YAML
+oc edit KafkaMirrorMaker2 prod-dc-kafka-mirror-maker -n prod-dc-kafka
+
+# Start DC->DR MM2
+oc scale KafkaMirrorMaker2 prod-dc-kafka-mirror-maker -n prod-dc-kafka --replicas=1
+```
+
+**Update Application Config (any client connecting to Kafka):**
+
+```
+bootstrap.servers=prod-dc-kafka-cluster-kafka-bootstrap-prod-dc-kafka.apps.dc.prod.epay.sbi:443
+```
+
+### Step 11 – Post-Drill Check
+
+**Run on Bastion/OC shell and inside Prod-DC Kafka broker pod:**
+
+```bash
+oc get pods -n prod-dc-kafka | grep mirror   # Check MM2 pod health
+oc rsh -n prod-dc-kafka <dc-broker-pod>
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --all-groups
+```
