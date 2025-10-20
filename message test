@@ -1,0 +1,60 @@
+
+Step 1 – Create a Test Topic in DC
+Run inside a DC broker pod:
+
+oc rsh -n prod-dc-kafka prod-dc-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-topics.sh \
+--bootstrap-server localhost:9092 \
+--create \
+--topic test-smm-sync \
+--partitions 1 \
+--replication-factor 3
+
+./kafka-topics.sh --bootstrap-server localhost:9092 --list
+exit
+
+
+You should see test-smm-sync in the list.
+
+
+
+Step 2 – Produce a Message into That Topic
+
+Run inside the same DC broker pod:
+
+oc rsh -n prod-dc-kafka prod-dc-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test-smm-sync
+
+
+Now type a few messages manually (press Enter after each):
+saadi
+omkar
+suraj
+nikhil
+
+
+
+
+Step 3 – Check if Topic Appears in DR
+
+Run inside a DR broker pod:
+
+oc rsh -n prod-dr-kafka prod-dr-kafka-cluster-broker-0
+cd /opt/kafka/bin/
+
+./kafka-topics.sh --bootstrap-server localhost:9092 --list | grep test-smm-sync
+
+
+Step 4 – Consume Messages in DR
+
+Still inside DR broker pod:
+
+./kafka-console-consumer.sh \
+--bootstrap-server localhost:9092 \
+--topic test-smm-sync \
+--from-beginning \
+--timeout-ms 5000
